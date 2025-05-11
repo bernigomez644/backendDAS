@@ -1,6 +1,15 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
+class IsRatingOwnerOrAdmin(BasePermission):
+    """
+    Permite acceso si el usuario es el creador de la valoración (user) o es administrador.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        return obj.user == request.user or request.user.is_staff
+
+
 class IsOwnerOrAdmin(BasePermission):
     """
     Permite editar/eliminar una subasta solo si el usuario es el propietario

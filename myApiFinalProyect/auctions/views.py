@@ -7,12 +7,17 @@ from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly,
 )
 
-from .permissions import IsBidOwnerOrAdmin, IsOwnerOrAdmin, IsAdminOrReadOnly
+from .permissions import (
+    IsBidOwnerOrAdmin,
+    IsOwnerOrAdmin,
+    IsAdminOrReadOnly,
+    IsRatingOwnerOrAdmin,
+)
 
 # Create your views here.
 from django.db.models import Q
 from rest_framework import generics, status
-from .models import Category, Auction, Bid
+from .models import Category, Auction, Bid, Rating
 from .serializers import (
     CategoryListCreateSerializer,
     CategoryDetailSerializer,
@@ -20,6 +25,8 @@ from .serializers import (
     AuctionDetailSerializer,
     BidsListCreateSerializer,
     BidsDetailSerializer,
+    RatingsListSerializer,
+    RatingsDetailSerializer,
 )
 
 from rest_framework.views import APIView
@@ -86,9 +93,6 @@ class AuctionListCreate(generics.ListCreateAPIView):
             query_set = query_set.filter(category=category)
         return query_set
 
-    def perform_create(self, serializer):
-        serializer.save(auctioneer=self.request.user)
-
 
 class AuctionRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsOwnerOrAdmin]
@@ -114,6 +118,29 @@ class BidsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Bid.objects.filter(auction=self.kwargs["auction_id"])
+
+
+class RatingsListCReate(generics.ListCreateAPIView):
+    """permission_classes = [IsAuthenticated]"""
+
+    serializer_class = RatingsListSerializer
+
+    def get_queryset(self):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        return auction.ratings.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class RatingsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
+    """permission_classes = [IsRatingOwnerOrAdmin]"""
+
+    serializer_class = RatingsDetailSerializer
+
+    def get_queryset(self):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        return auction.ratings.all()
 
 
 class UserAuctionListView(APIView):

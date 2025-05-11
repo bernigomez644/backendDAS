@@ -23,6 +23,7 @@ class Auction(models.Model):
         max_digits=3,
         decimal_places=2,
         validators=[MinValueValidator(1), MaxValueValidator(5)],
+        default=1,
     )
     stock = models.IntegerField(validators=[MinValueValidator(1)])
     brand = models.CharField(max_length=100)
@@ -46,7 +47,9 @@ class Auction(models.Model):
 class Bid(models.Model):
     auction = models.ForeignKey(Auction, on_delete=models.CASCADE, related_name="bids")
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    bidder = models.CharField(max_length=100)
+    bidder = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="bids"
+    )
     created_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -54,3 +57,19 @@ class Bid(models.Model):
 
     def __str__(self):
         return f"{self.bidder} - {self.price}€ on {self.auction.title}"
+
+
+class Rating(models.Model):
+    valor_numerico = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    user = models.ForeignKey(
+        CustomUser, related_name="ratings", on_delete=models.CASCADE
+    )
+    auction = models.ForeignKey(
+        Auction, related_name="ratings", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        ordering = ("id",)
+        unique_together = ("user", "auction")
