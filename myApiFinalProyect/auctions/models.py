@@ -73,3 +73,20 @@ class Rating(models.Model):
     class Meta:
         ordering = ("id",)
         unique_together = ("user", "auction")
+
+
+class Comentario(models.Model):
+    titulo = models.CharField(max_length=50)
+    campo_de_texto = models.TextField()
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_ultima_modificacion = models.DateTimeField()
+    usuario = models.ForeignKey(
+        CustomUser, related_name="comments", on_delete=models.CASCADE
+    )
+    auction = models.ForeignKey(
+        Auction, related_name="comments", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        ordering = ("id",)
+        unique_together = ("usuario", "auction")

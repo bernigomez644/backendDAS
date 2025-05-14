@@ -9,6 +9,10 @@ from .views import (
     UserAuctionListView,
     RatingsListCReate,
     RatingsRetrieveUpdateDestroy,
+    ComentListCreate,
+    ComentRetrieveUpdateDestroy,
+    UserRatingsView,
+    UserComentsView,
 )
 
 
@@ -22,7 +26,7 @@ urlpatterns = [
     ),
     path("", AuctionListCreate.as_view(), name="auction-list-create"),
     path("<int:pk>/", AuctionRetrieveUpdateDestroy.as_view(), name="auction-detail"),
-    path("<int:pk>/bid/", BidsListCreate.as_view(), name="bids-list-create"),
+    path("<int:auction_id>/bid/", BidsListCreate.as_view(), name="bids-list-create"),
     path(
         "<int:auction_id>/bid/<int:pk>/",
         BidsRetrieveUpdateDestroy.as_view(),
@@ -39,4 +43,16 @@ urlpatterns = [
         RatingsRetrieveUpdateDestroy.as_view(),
         name="ratings-detail",
     ),
+    path(
+        "<int:auction_id>/comments",
+        ComentListCreate.as_view(),
+        name="list_create_comments",
+    ),
+    path(
+        "<int:auction_id>/comments/<int:pk>",
+        ComentRetrieveUpdateDestroy.as_view(),
+        name="detail_comments",
+    ),
+    path("users/ratings", UserRatingsView.as_view(), name="rating-from-users"),
+    path("users/comments", UserComentsView.as_view(), name="coments-from-users"),
 ]

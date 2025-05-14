@@ -12,12 +12,14 @@ from .permissions import (
     IsOwnerOrAdmin,
     IsAdminOrReadOnly,
     IsRatingOwnerOrAdmin,
+    isCommentaryownerorReadonly,
 )
+from django.utils import timezone
 
 # Create your views here.
 from django.db.models import Q
 from rest_framework import generics, status
-from .models import Category, Auction, Bid, Rating
+from .models import Category, Auction, Bid, Rating, Comentario
 from .serializers import (
     CategoryListCreateSerializer,
     CategoryDetailSerializer,
@@ -27,6 +29,8 @@ from .serializers import (
     BidsDetailSerializer,
     RatingsListSerializer,
     RatingsDetailSerializer,
+    CommentDetailSerializer,
+    CommentListCreateSerializer,
 )
 
 from rest_framework.views import APIView
@@ -105,11 +109,12 @@ class BidsListCreate(generics.ListCreateAPIView):
     serializer_class = BidsListCreateSerializer
 
     def get_queryset(self):
-        auction_id = self.kwargs["pk"]
+        auction_id = self.kwargs["auction_id"]
         return Bid.objects.filter(auction=auction_id)
 
     def perform_create(self, serializer):
-        serializer.save(bidder=self.request.user)
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        serializer.save(bidder=self.request.user, auction=auction)
 
 
 class BidsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
@@ -119,9 +124,13 @@ class BidsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Bid.objects.filter(auction=self.kwargs["auction_id"])
 
+    def perform_create(self, serializer):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        serializer.save(bidder=self.request.user, auction=auction)
+
 
 class RatingsListCReate(generics.ListCreateAPIView):
-    """permission_classes = [IsAuthenticated]"""
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     serializer_class = RatingsListSerializer
 
@@ -130,17 +139,56 @@ class RatingsListCReate(generics.ListCreateAPIView):
         return auction.ratings.all()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        serializer.save(user=self.request.user, auction=auction)
 
 
 class RatingsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
-    """permission_classes = [IsRatingOwnerOrAdmin]"""
+    permission_classes = [IsRatingOwnerOrAdmin]
 
     serializer_class = RatingsDetailSerializer
 
     def get_queryset(self):
         auction = Auction.objects.get(id=self.kwargs["auction_id"])
         return auction.ratings.all()
+
+    def perform_create(self, serializer):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        serializer.save(user=self.request.user, auction=auction)
+
+
+class ComentListCreate(generics.ListCreateAPIView):
+    serializer_class = CommentListCreateSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return Comentario.objects.filter(auction=self.kwargs["auction_id"])
+
+    def perform_create(self, serializer):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        fecha_ultima_modificacion = timezone.now()
+        serializer.save(
+            usuario=self.request.user,
+            auction=auction,
+            fecha_ultima_modificacion=fecha_ultima_modificacion,
+        )
+
+
+class ComentRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [isCommentaryownerorReadonly]
+    serializer_class = CommentDetailSerializer
+
+    def get_queryset(self):
+        return Comentario.objects.filter(auction=self.kwargs["auction_id"])
+
+    def perform_create(self, serializer):
+        auction = Auction.objects.get(id=self.kwargs["auction_id"])
+        fecha_ultima_modificacion = timezone.now()
+        serializer.save(
+            usuario=self.request.user,
+            auction=auction,
+            fecha_ultima_modificacion=fecha_ultima_modificacion,
+        )
 
 
 class UserAuctionListView(APIView):
@@ -150,4 +198,22 @@ class UserAuctionListView(APIView):
         # Obtener las subastas del usuario autenticado
         user_auctions = Auction.objects.filter(auctioneer=request.user)
         serializer = AuctionListCreateSerializer(user_auctions, many=True)
+        return Response(serializer.data)
+
+
+class UserRatingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_ratings = Rating.objects.filter(user=self.request.user)
+        serializer = RatingsListSerializer(user_ratings, many=True)
+        return Response(serializer.data)
+
+
+class UserComentsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_comments = Comentario.objects.filter(usuario=self.request.user)
+        serializer = CommentListCreateSerializer(user_comments, many=True)
         return Response(serializer.data)

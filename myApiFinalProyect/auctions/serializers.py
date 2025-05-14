@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Auction, Bid, Rating
+from .models import Category, Auction, Bid, Rating, Comentario
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from datetime import timedelta
@@ -18,15 +18,17 @@ class CategoryDetailSerializer(serializers.ModelSerializer):
 
 
 class RatingsListSerializer(serializers.ModelSerializer):
-    auction = serializers.PrimaryKeyRelatedField(queryset=Auction.objects.all())
-    user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )  # ← esta línea
+    # auction = serializers.PrimaryKeyRelatedField(queryset=Auction.objects.all())
+    # user = serializers.HiddenField(
+    #     default=serializers.CurrentUserDefault()
+    # )  # ← esta línea
     user_username = serializers.CharField(source="user.username", read_only=True)
+    auction_title = serializers.CharField(source="auction.title", read_only=True)
 
     class Meta:
         model = Rating
         fields = "__all__"
+        read_only_fields = ("auction", "user")
 
 
 class AuctionListCreateSerializer(serializers.ModelSerializer):
@@ -54,19 +56,19 @@ class AuctionListCreateSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def create(self, validated_data):
-        rating_value = validated_data.pop("rating", None)
-        user = self.context["request"].user
+    # def create(self, validated_data):
+    #     rating_value = validated_data.pop("rating", None)
+    #     user = self.context["request"].user
 
-        auction = Auction.objects.create(auctioneer=user, **validated_data)
+    #     auction = Auction.objects.create(auctioneer=user, **validated_data)
 
-        # Crear automáticamente el Rating si viene incluido
-        if rating_value is not None:
-            Rating.objects.create(
-                valor_numerico=rating_value, user=user, auction=auction
-            )
+    #     # Crear automáticamente el Rating si viene incluido
+    #     if rating_value is not None:
+    #         Rating.objects.create(
+    #             valor_numerico=rating_value, user=user, auction=auction
+    #         )
 
-        return auction
+    #     return auction
 
     def get_avg_rating(self, obj):
         ratings = obj.ratings.all()
@@ -179,6 +181,7 @@ class BidsListCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bid
         fields = "__all__"
+        read_only_fields = ("auction", "bidder")
 
     def validate_price(self, value):
         if value <= 0:
@@ -186,16 +189,15 @@ class BidsListCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        auction = data["auction"]
+        auction = self.instance.auction if self.instance else data.get("auction")
         new_price = data["price"]
 
-        # Obtener la puja más alta actual
-        highest_bid = auction.bids.order_by("-price").first()
-        if highest_bid and new_price <= highest_bid.price:
-            raise serializers.ValidationError(
-                "La puja debe ser mayor que la actual más alta."
-            )
-
+        if auction:
+            highest_bid = auction.bids.order_by("-price").first()
+            if highest_bid and new_price <= highest_bid.price:
+                raise serializers.ValidationError(
+                    "La puja debe ser mayor que la actual más alta."
+                )
         return data
 
 
@@ -209,6 +211,7 @@ class BidsDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bid
         fields = "__all__"
+        read_only_fields = ("auction", "bidder")
 
     def validate_price(self, value):
         if value <= 0:
@@ -216,23 +219,41 @@ class BidsDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        auction = data["auction"]
+        auction = self.instance.auction if self.instance else data.get("auction")
         new_price = data["price"]
 
-        # Obtener la puja más alta actual
-        highest_bid = auction.bids.order_by("-price").first()
-        if highest_bid and new_price <= highest_bid.price:
-            raise serializers.ValidationError(
-                "La puja debe ser mayor que la actual más alta."
-            )
-
+        if auction:
+            highest_bid = auction.bids.order_by("-price").first()
+            if highest_bid and new_price <= highest_bid.price:
+                raise serializers.ValidationError(
+                    "La puja debe ser mayor que la actual más alta."
+                )
         return data
 
 
 class RatingsDetailSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     user_username = serializers.CharField(source="user.username", read_only=True)
+    auction_title = serializers.CharField(source="auction.title", read_only=True)
 
     class Meta:
         model = Rating
         fields = "__all__"
+
+
+class CommentDetailSerializer(serializers.ModelSerializer):
+    auction_title = serializers.CharField(source="auction.title", read_only=True)
+
+    class Meta:
+        model = Comentario
+        fields = "__all__"
+        read_only_fields = ("auction", "usuario", "fecha_ultima_modificacion")
+
+
+class CommentListCreateSerializer(serializers.ModelSerializer):
+    auction_title = serializers.CharField(source="auction.title", read_only=True)
+
+    class Meta:
+        model = Comentario
+        fields = "__all__"
+        read_only_fields = ("auction", "usuario", "fecha_ultima_modificacion")
