@@ -60,6 +60,23 @@ class Bid(models.Model):
 
 
 class Rating(models.Model):
+
+    valor_numerico = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    user = models.ForeignKey(
+        CustomUser, related_name="ratings", on_delete=models.CASCADE
+    )
+    auction = models.ForeignKey(
+        Auction, related_name="ratings", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        ordering = ("-valor_numerico",)
+        unique_together = ("user", "auction")
+
+
+"""class Rating(models.Model):
     valor_numerico = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
     )
@@ -73,6 +90,7 @@ class Rating(models.Model):
     class Meta:
         ordering = ("id",)
         unique_together = ("user", "auction")
+"""
 
 
 class Comentario(models.Model):

@@ -1,4 +1,4 @@
-from rest_framework import serializers
+from rest_framework import serializers, generics
 from .models import Category, Auction, Bid, Rating, Comentario
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
@@ -153,6 +153,8 @@ class AuctionDetailSerializer(serializers.ModelSerializer):
             "avg_rating",
             "auctioneer_username",
         ]
+
+        read_only_fields = ["auctioneer"]
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_open(self, obj):

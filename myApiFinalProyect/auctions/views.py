@@ -1,3 +1,6 @@
+from django.db.models import Avg
+
+
 from django.shortcuts import render
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import (
@@ -69,8 +72,26 @@ class AuctionListCreate(generics.ListCreateAPIView):
 
         category = params.get("category", None)
 
-        price_min = params.get("priceMin")
-        price_max = params.get("priceMax")
+        price_min = params.get("priceMin", None)
+        price_max = params.get("priceMax", None)
+
+        rating = params.get("rating", None)
+
+        is_open = params.get("is_open", None)
+
+        if is_open is not None:
+            is_open = is_open.lower() == "true"  # convierte el string a booleano
+
+            if is_open:
+                query_set = query_set.filter(closing_date__gte=timezone.now())
+            else:
+                query_set = query_set.filter(closing_date__lte=timezone.now())
+        if rating:
+            query_set = query_set.annotate(avg_rating=Avg("ratings__valor_numerico"))
+            rating = float(rating)
+            if rating < 0:
+                raise ValidationError({"rating": "Debe de ser un valor positivo"})
+            query_set = query_set.filter(avg_rating__gte=rating)
 
         if price_min:
 
@@ -95,7 +116,11 @@ class AuctionListCreate(generics.ListCreateAPIView):
             if not Category.objects.filter(id=category).exists():
                 raise ValidationError({"category": "Category does not exist."})
             query_set = query_set.filter(category=category)
+
         return query_set
+
+    def perform_create(self, serializer):
+        serializer.save(auctioneer=self.request.user)
 
 
 class AuctionRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
@@ -124,10 +149,6 @@ class BidsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Bid.objects.filter(auction=self.kwargs["auction_id"])
 
-    def perform_create(self, serializer):
-        auction = Auction.objects.get(id=self.kwargs["auction_id"])
-        serializer.save(bidder=self.request.user, auction=auction)
-
 
 class RatingsListCReate(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -151,10 +172,6 @@ class RatingsRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         auction = Auction.objects.get(id=self.kwargs["auction_id"])
         return auction.ratings.all()
-
-    def perform_create(self, serializer):
-        auction = Auction.objects.get(id=self.kwargs["auction_id"])
-        serializer.save(user=self.request.user, auction=auction)
 
 
 class ComentListCreate(generics.ListCreateAPIView):
@@ -180,15 +197,6 @@ class ComentRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Comentario.objects.filter(auction=self.kwargs["auction_id"])
-
-    def perform_create(self, serializer):
-        auction = Auction.objects.get(id=self.kwargs["auction_id"])
-        fecha_ultima_modificacion = timezone.now()
-        serializer.save(
-            usuario=self.request.user,
-            auction=auction,
-            fecha_ultima_modificacion=fecha_ultima_modificacion,
-        )
 
 
 class UserAuctionListView(APIView):
